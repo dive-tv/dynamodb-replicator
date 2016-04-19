@@ -28,6 +28,33 @@ module.exports = function(config, done) {
         var count = 0;
         var starttime = Date.now();
 
+        var scanner = primary.scanStream();
+        
+        var throttler = new stream.Transform({ objectMode: true });
+        
+        throttler.enabled = !isNaN(config.readspersec);
+        throttler.readsPerSec = config.readspersec;
+        throttler.window = [];
+        
+        throttler._transform = function (data, encoding, callback) {
+            
+            if (throttler.enabled) {
+                var now = Date.now();
+                throttler.window.push(now);
+                
+                var oldest = throttler.window[0];
+                while (now - oldest > 1000)
+                    oldest = throttler.window.shift();
+                
+                if (throttler.window.length >= throttler.readsPerSec) {
+                    scanner.pause();
+                    setTimeout(() => {scanner.resume()}, 1000);
+                }
+            }
+            
+            callback(null, data);
+        };
+        
         var writer = new stream.Writable({ objectMode: true, highWaterMark: 1000 });
 
         writer.queue = queue();
@@ -37,7 +64,7 @@ module.exports = function(config, done) {
         writer._write = function(record, enc, callback) {
             if (writer.pending > 1000)
                 return setImmediate(writer._write.bind(writer), record, enc, callback);
-
+            
             var key = keys.reduce(function(key, k) {
                 key[k] = record[k];
                 return key;
@@ -78,8 +105,9 @@ module.exports = function(config, done) {
             writer.queue.awaitAll(end);
         };
 
-        primary.scanStream()
+        scanner
             .on('error', next)
+          .pipe(throttler)
           .pipe(writer)
             .on('error', next)
             .on('finish', next);

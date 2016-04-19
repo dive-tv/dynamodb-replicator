@@ -6,7 +6,10 @@ var backfill = require('../s3-backfill');
 
 function usage() {
     console.error('');
-    console.error('Usage: incremental-backfill region/table s3url');
+    console.error('Usage: incremental-backfill <tableinfo> <s3url> [readspersec]');
+    console.error(' - tableinfo: the table to backup from, specified as `region/tablename`');
+    console.error(' - s3url: s3 folder into which the record should be backed up to');
+    console.error(' - readspersec: optional read items limit per second for DynamoDB scan');
 }
 
 if (args.help) {
@@ -34,13 +37,20 @@ if (!s3url) {
 
 s3url = s3urls.fromUrl(s3url);
 
+var readspersec = args._[2];
+
+if (!readspersec) {
+    readspersec = 'unlimited';
+}
+
 var config = {
     region: table[0],
     table: table[1],
     backup: {
         bucket: s3url.Bucket,
         prefix: s3url.Key
-    }
+    },
+    readspersec: readspersec
 };
 
 backfill(config, function(err) {
