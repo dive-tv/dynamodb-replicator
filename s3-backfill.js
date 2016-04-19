@@ -47,8 +47,9 @@ module.exports = function(config, done) {
                     oldest = throttler.window.shift();
                 
                 if (throttler.window.length >= throttler.readsPerSec) {
+                    var elapsed = now - throttler.window[0];
                     scanner.pause();
-                    setTimeout(() => {scanner.resume()}, 1000);
+                    setTimeout(() => {scanner.resume()}, 1000 - elapsed);
                 }
             }
             
