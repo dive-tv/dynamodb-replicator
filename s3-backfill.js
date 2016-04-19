@@ -15,8 +15,8 @@ module.exports = function(config, done) {
     var primary = Dyno(config);
 
     if (config.backup)
-        if (!config.backup.bucket || !config.backup.prefix)
-            return done(new Error('Must provide a bucket and prefix for incremental backups'));
+        if (!config.backup.bucket)
+            return done(new Error('Must provide a bucket for incremental backups'));
 
     primary.describeTable(function(err, data) {
         if (err) return done(err);
@@ -47,9 +47,13 @@ module.exports = function(config, done) {
                 .update(Dyno.serialize(key))
                 .digest('hex');
 
+            var keyFields = [];
+            if (config.backup.prefix)
+                keyFields.push(config.backup.prefix);
+            keyFields.push(config.table, id);
             var params = {
                 Bucket: config.backup.bucket,
-                Key: [config.backup.prefix, config.table, id].join('/'),
+                Key: keyFields.join('/'),
                 Body: Dyno.serialize(record)
             };
 
