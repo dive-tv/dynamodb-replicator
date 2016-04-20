@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 var args = require('minimist')(process.argv.slice(2));
-var s3urls = require('s3urls');
 var queue = require('queue-async');
 var AWS = require('aws-sdk');
 var fs = require('fs');
@@ -28,7 +27,6 @@ if (!s3src) {
     usage();
     process.exit(1);
 }
-s3src = s3urls.fromUrl(s3src);
 
 var s3dst = args._[1];
 if (!s3dst) {
@@ -36,7 +34,6 @@ if (!s3dst) {
     usage();
     process.exit(1);
 }
-s3dst = s3urls.fromUrl(s3dst);
 
 var launchSnapshot = (tableList) => {
     
@@ -63,7 +60,7 @@ var launchSnapshot = (tableList) => {
         
         console.log("Launching process " + cpu + " for " + tables.length + " tables from " + fileName);
         
-        var process = spawn('./bin/full-db-backup.js', [s3src.Bucket, s3dst.Bucket, fileName]);
+        var process = spawn('./bin/full-db-backup.js', [s3src, s3dst, fileName]);
         process.on('close', (code) => {
             console.log('Process finished with code ' + code);
         });
@@ -76,7 +73,7 @@ var s3 = new AWS.S3();
 var listTablesFromS3 = (lastKey) => {
     
     s3.listObjects({
-        Bucket: s3src.Bucket,
+        Bucket: s3src,
         Delimiter: S3_SEP,
         EncodingType: 'url',
         Marker: lastKey,
