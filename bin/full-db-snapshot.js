@@ -6,14 +6,16 @@ var snapshot = require('../s3-snapshot');
 var queue = require('queue-async');
 var AWS = require('aws-sdk');
 var dateformat = require('dateformat');
+var fs = require('fs');
 
 var S3_SEP = '/';
 
 function usage() {
     console.error('');
-    console.error('Usage: full-db-snapshot <s3srcbucket> <s3dstbucket> [snapshottag]');
+    console.error('Usage: full-db-snapshot <s3srcbucket> <s3dstbucket> [tablefile] [snapshottag]');
     console.error(' - s3srcbucket: s3 source bucket where tables are backed up');
     console.error(' - s3dstbucket: s3 destination bucket where snapshot will be stored');
+    console.error(' - tablefile: optional file path with a list of tables to be processed');
     console.error(' - snapshottag: optional tag for the snapshot. "yyyymmdd" by default');
 }
 
@@ -38,7 +40,9 @@ if (!s3dst) {
 }
 s3dst = s3urls.fromUrl(s3dst);
 
-var snapshottag = args._[2];
+var tablesfile = args._[2];
+
+var snapshottag = args._[3];
 if (!snapshottag) {
     snapshottag = dateformat(new Date(), "yyyymmdd");
     console.error('Using default snapshot tag: ' + snapshottag);
@@ -49,7 +53,9 @@ var queue = queue();
 var snapshotTable = (table) => {
     
     queue.defer((next) => {
-        var tag = [snapshottag, table].join(S3_SEP).slice(0, -1);
+        var tag = [snapshottag, table].join(S3_SEP)
+        if (tag.endsWith(S3_SEP))
+            tag = tag.slice(0, -1);
         console.log("Creating snapshot " + tag);
         snapshot({
             //log: '',
@@ -74,7 +80,23 @@ var snapshotTable = (table) => {
 
 var s3 = new AWS.S3();
 
-var listTables = (lastKey) => {
+var listTablesFromFile = (fileName) => {
+    
+    fs.readFile(fileName, (err, data) => {
+        
+        if(err)  {
+            console.log(err, err.stack);
+        } else {
+            data.toString().split("\n").map((table) => {
+                table = table.trim();
+                if (table.length > 0)
+                    snapshotTable(table);
+            })
+        }
+    });
+}
+
+var listTablesFromS3 = (lastKey) => {
     
     s3.listObjects({
         Bucket: s3src.Bucket,
@@ -91,14 +113,17 @@ var listTables = (lastKey) => {
                 snapshotTable(prefix.Prefix)
             })
             if (data.IsTruncated) {
-                listTables(data.NextMarker);
-            } else {
-                queue.awaitAll((err, data) => { 
-                    if (err) console.log(err);
-                });
+                listTablesFromS3(data.NextMarker);
             }
         }
     });
 }
 
-listTables(null);
+if (tablesfile)
+    listTablesFromFile(tablesfile);
+else
+    listTablesFromS3(null);
+
+queue.awaitAll((err, data) => { 
+    if (err) console.log(err);
+});
