@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 var args = require('minimist')(process.argv.slice(2));
+var s3urls = require('s3urls');
 var queue = require('queue-async');
 var AWS = require('aws-sdk');
 var fs = require('fs');
@@ -27,6 +28,7 @@ if (!s3src) {
     usage();
     process.exit(1);
 }
+s3srcbucket = s3urls.fromUrl(s3src);
 
 var s3dst = args._[1];
 if (!s3dst) {
@@ -73,7 +75,7 @@ var s3 = new AWS.S3();
 var listTablesFromS3 = (lastKey) => {
     
     s3.listObjects({
-        Bucket: s3src,
+        Bucket: s3srcbucket.Bucket,
         Delimiter: S3_SEP,
         EncodingType: 'url',
         Marker: lastKey,
