@@ -63,7 +63,7 @@ var launchSnapshot = (tableList) => {
         
         console.log("Launching process " + cpu + " for " + tables.length + " tables from " + fileName);
         
-        var process = spawn('./bin/full-db-backup.js', [s3src, s3dst, fileName]);
+        var process = spawn('./bin/full-db-backup.js', [s3src.Bucket, s3dst.Bucket, fileName]);
         process.on('close', (code) => {
             console.log('Process finished with code ' + code);
         });
