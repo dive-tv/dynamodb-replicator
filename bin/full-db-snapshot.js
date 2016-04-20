@@ -78,8 +78,6 @@ var snapshotTable = (table) => {
     });    
 }
 
-var s3 = new AWS.S3();
-
 var listTablesFromFile = (fileName) => {
     
     fs.readFile(fileName, (err, data) => {
@@ -96,6 +94,7 @@ var listTablesFromFile = (fileName) => {
     });
 }
 
+var s3 = new AWS.S3();
 var listTablesFromS3 = (lastKey) => {
     
     s3.listObjects({
