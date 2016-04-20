@@ -82,7 +82,7 @@ var listTables = (lastKey) => {
         EncodingType: 'url',
         Marker: lastKey,
         MaxKeys: 100,
-        Prefix: 'preproduction_actor'
+        Prefix: ''
     }, (err, data) => {
         if (err) {
             console.log(err, err.stack);
