@@ -11,7 +11,7 @@ var dateformat = require('dateformat')
 var fs = require('fs')
 
 const S3_SEP = '/'
-const CONCURRENCY = 3
+const CONCURRENCY = 1
 
 function usage() {
     console.error('')
