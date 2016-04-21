@@ -9,6 +9,7 @@ var dateformat = require('dateformat');
 var fs = require('fs');
 
 var S3_SEP = '/';
+const CONCURRENCY = 3
 
 function usage() {
     console.error('');
@@ -48,7 +49,7 @@ if (!snapshottag) {
     console.error('Using default snapshot tag: ' + snapshottag);
 }
 
-var queue = queue();
+var queue = queue(CONCURRENCY)
 
 var snapshotTable = (table) => {
     
