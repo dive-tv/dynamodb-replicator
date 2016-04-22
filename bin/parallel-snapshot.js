@@ -67,7 +67,7 @@ var launchSnapshot = (tableList) => {
                         if (i % cpus.length === procNr)
                             procTables.push(tableList[i])
                     
-                    let fileName = `/tmp/tl${procNr.toString()}`
+                    let fileName = `/tmp/ps${procNr.toString()}`
                     let fileStream = fs.createWriteStream(fileName, {'flags': 'w'})
                     procTables.map(t => fileStream.write(`${t.name}\n`))
                     fileStream.end()
