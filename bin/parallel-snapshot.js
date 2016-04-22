@@ -4,14 +4,16 @@
 
 var args = require('minimist')(process.argv.slice(2))
 var s3urls = require('s3urls')
-var queue = require('queue-async')
 var AWS = require('aws-sdk')
 var fs = require('fs')
 var spawn = require('child_process').spawn
-var AWS = require('aws-sdk')
+var async = require('async')
+var os = require('os')
 
 const S3_SEP = '/'
 const DDB_REGION = 'eu-west-1'
+
+var exitCode = 0
 
 function usage() {
     console.error('')
@@ -42,49 +44,55 @@ if (!s3dst) {
 
 var dynamoDB = new AWS.DynamoDB({ region: DDB_REGION })
 
-var readItemCount = (table) => {
-    dynamoDB.describeTable({ TableName: table.name.slice(0, -1) }, (err, data) => {
-        if (err) console.error(err)
-        if(data) table.weight = parseInt(data.Table.ItemCount)
-        else table.weight = 0
-    })
-}
-
 var launchSnapshot = (tableList) => {
     
     // map item count to each table
-    tableList.map(t => { readItemCount(t) })
-    
-    // wait up to 2 secs for async requests
-    setTimeout(() => {
-        
-        tableList.sort((a, b) => a.weight - b.weight)
-        
-        var cpuNr = 4
-        if (tableList.length < cpuNr)
-            cpuNr = tableList.length
-        
-        for (let proc = 0; proc < cpuNr; proc++) {
+    async.forEach(tableList, (table, callback) => dynamoDB.describeTable(
+        { TableName: table.name.slice(0, -1) },
+        (err, data) => {
+            if(data) table.weight = parseInt(data.Table.ItemCount)
+            else table.weight = 0
+            callback(err)
+        }), 
+        err =>  {
+            if (err) console.error(err)
             
-            let procTables = []
-            for (let i in tableList)
-                if (i % cpuNr === proc)
-                    procTables.push(tableList[i])
+            tableList.sort((a, b) => a.weight - b.weight)
             
-            let fileName = `/tmp/tl${proc.toString()}`
-            let fileStream = fs.createWriteStream(fileName, {'flags': 'w'})
-            procTables.map(t => fileStream.write(`${t}\n`))
-            fileStream.end()
-            
-            console.log(`Launching P${proc} for ${procTables.length} tables from ${fileName}`)
-            
-            let process = spawn('./bin/full-db-snapshot.js', [s3src, s3dst, fileName])
-            
-            process.on('close', code => console.log(`P${proc} finished with code ${code}`))
-            process.stdout.on('data', data => console.log(`P${proc}: ${data}`))
-            process.stderr.on('data', data => console.error(`P${proc} ERR: ${data}`))
-        }
-    }, 2000)
+            var cpus = os.cpus()
+            async.forEachOf(cpus, (cpu, procNr, done) => {
+                    let procTables = []
+                    for (let i in tableList)
+                        if (i % cpus.length === procNr)
+                            procTables.push(tableList[i])
+                    
+                    let fileName = `/tmp/tl${procNr.toString()}`
+                    let fileStream = fs.createWriteStream(fileName, {'flags': 'w'})
+                    procTables.map(t => fileStream.write(`${t.name}\n`))
+                    fileStream.end()
+                    
+                    console.log(`Launching P${procNr} for ${procTables.length} tables from ${fileName}`)
+                    
+                    let proc = spawn('./bin/full-db-snapshot.js', [s3src, s3dst, fileName])
+                    
+                    proc.on('exit', (code, signal) => {
+                        if (code !== null) {
+                            exitCode += code
+                            console.log(`P${procNr} finished with code ${code}`)
+                        }
+                        if (signal !== null) { 
+                            console.log(`P${procNr} killed by signal ${signal}`)
+                        }
+                        done()
+                    })
+                    proc.stdout.on('data', data => console.log(`P${procNr}: ${data}`))
+                    proc.stderr.on('data', data => console.error(`P${procNr} ERR: ${data}`))
+            }, (err) => {
+                if (err) console.error(err)
+                console.log(`All processes finished with code ${exitCode}`)
+                process.exit(exitCode)
+            })
+    })
 }
 
 var tableList = []
