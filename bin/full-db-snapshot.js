@@ -73,27 +73,20 @@ var snapshotTable = (table) => {
             },
             maxRetries: 1000
         }, (err) => {
-            if (err)
-                console.error(err)
+            if (err) console.error(err)
             console.log(`Finished ${table} snapshot`)
-            next()
+            next(err)
         })
     })    
 }
 
 var listTablesFromFile = (fileName) => {
     
-    fs.readFile(fileName, (err, data) => {
-        
-        if(err)  {
-            console.log(err, err.stack)
-        } else {
-            data.toString().split('\n').map(table => {
-                table = table.trim()
-                if (table.length > 0)
-                    snapshotTable(table)
-            })
-        }
+    let data = fs.readFileSync(fileName)
+    data.toString().split('\n').map(table => {
+        table = table.trim()
+        if (table.length > 0)
+            snapshotTable(table)
     })
 }
 
@@ -127,5 +120,10 @@ else
     listTablesFromS3(null)
 
 queue.awaitAll((err, data) => { 
-    if (err) console.error(err)
+    if (err) {
+        console.error(err)
+        process.exit(1)
+    } else {
+        process.exit(0)
+    }
 })
