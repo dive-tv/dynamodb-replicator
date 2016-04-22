@@ -1,17 +1,21 @@
 #!/usr/bin/env node
 
+"use strict"
+
 var args = require('minimist')(process.argv.slice(2))
 var s3urls = require('s3urls')
 var backfill = require('../s3-backfill')
 var Dyno = require('dyno')
 var queue = require('queue-async')
+var fs = require('fs')
 
 function usage() {
     console.error('')
-    console.error('Usage: full-db-backup <region> <prefix> <s3url> [readspersec]')
+    console.error('Usage: full-db-backup <region> <prefix> <s3url> [tablesfile | readspersec]')
     console.error(' - region: the dynamodb region with source tables')
     console.error(' - prefix: prefix of tables that should be backed up')
     console.error(' - s3url: s3 folder into which the tables should be backed up to')
+    console.error(' - tablefile: optional file with list of tables and their read limits')
     console.error(' - readspersec: optional read items limit per second for DynamoDB scan')
 }
 
@@ -44,10 +48,14 @@ if (!s3url) {
 
 s3url = s3urls.fromUrl(s3url)
 
-var readspersec = args._[3]
-
-if (!readspersec) {
-    readspersec = 'unlimited'
+var third = args._[3]
+var readspersec = 'unlimited' 
+var tablesfile
+if (third) {
+    if (isNaN(third))
+        tablesfile = third
+    else
+        readspersec = parseInt(third)
 }
 
 var dyno = Dyno({
@@ -57,10 +65,9 @@ var dyno = Dyno({
 
 var queue = queue()
 
-var dumpTable = (table) => {
-    
+var dumpTable = (table, rps) => {
+    console.log(`Dumping ${table} at ${rps} reads per sec`)
     queue.defer((next) => {
-        console.log(`Dumping ${table}`)
         backfill({
             region: region,
             table: table,
@@ -68,7 +75,7 @@ var dumpTable = (table) => {
                 bucket: s3url.Bucket,
                 prefix: s3url.Key
             },
-            readspersec: readspersec
+            readspersec: rps
         }, (err) => {
             if (err)
                 console.error(err)
@@ -78,7 +85,17 @@ var dumpTable = (table) => {
     })    
 }
 
-var listTables = (prefix, lastEvaluatedTableName) => {
+var listTablesFromFile = (fileName) => {
+    
+    let data = fs.readFileSync(fileName)
+    data.toString().split('\n').map(table => {
+        table = table.trim()
+        if (table.length > 0)
+            dumpTable.apply(this, table.split(','))
+    })
+}
+
+var listTablesFromDB = (prefix, lastEvaluatedTableName) => {
     
     dyno.listTables({
         Limit: 100,
@@ -90,11 +107,11 @@ var listTables = (prefix, lastEvaluatedTableName) => {
             
             data.TableNames.map((table) => {
                 if (!prefix || table.startsWith(prefix))
-                    dumpTable(table)
+                    dumpTable(table, readspersec)
             })
             
             if(data.LastEvaluatedTableName) {
-                listTables(prefix, data.LastEvaluatedTableName)
+                listTablesFromDB(prefix, data.LastEvaluatedTableName)
             } else {
                 queue.awaitAll((err, data) => { 
                     if (err) console.error(err)
@@ -105,4 +122,7 @@ var listTables = (prefix, lastEvaluatedTableName) => {
     })
 }
 
-listTables(prefix, null)
+if (tablesfile)
+    listTablesFromFile(tablesfile)
+else
+    listTablesFromDB(prefix, null)
