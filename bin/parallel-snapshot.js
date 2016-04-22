@@ -14,6 +14,7 @@ const S3_SEP = '/'
 const DDB_REGION = 'eu-west-1'
 
 var exitCode = 0
+var startTime = Date.now()
 
 function usage() {
     console.error('')
@@ -90,6 +91,7 @@ var launchSnapshot = (tableList) => {
             }, (err) => {
                 if (err) console.error(err)
                 console.log(`All processes finished with code ${exitCode}`)
+                console.log(`Took ${(Date.now() - startTime) / 1000} seconds`)
                 process.exit(exitCode)
             })
     })
