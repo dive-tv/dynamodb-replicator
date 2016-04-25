@@ -11,6 +11,8 @@ var stream = require('stream');
 var queue = require('queue-async');
 var crypto = require('crypto');
 
+const ONE_SEC = 1000
+ 
 module.exports = function(config, done) {
     var primary = Dyno(config);
 
@@ -36,20 +38,20 @@ module.exports = function(config, done) {
         throttler.readsPerSec = config.readspersec;
         throttler.window = [];
         
-        throttler._transform = function (data, encoding, callback) {
+        throttler._transform = (data, encoding, callback) => {
             
             if (throttler.enabled) {
                 var now = Date.now();
                 throttler.window.push(now);
                 
                 var oldest = throttler.window[0];
-                while (now - oldest > 1000)
+                while (now - oldest > ONE_SEC)
                     oldest = throttler.window.shift();
                 
                 if (throttler.window.length >= throttler.readsPerSec) {
                     var elapsed = now - throttler.window[0];
                     scanner.pause();
-                    setTimeout(() => {scanner.resume()}, 1000 - elapsed);
+                    setTimeout(() => {scanner.resume()}, ONE_SEC - elapsed);
                 }
             }
             
