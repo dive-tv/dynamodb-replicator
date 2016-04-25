@@ -18,7 +18,7 @@ var startTime = Date.now()
 
 function usage() {
     console.error('')
-    console.error('Usage: parallell-snapshot <s3srcbucket> <s3dstbucket>')
+    console.error('Usage: parallel-snapshot <s3srcbucket> <s3dstbucket>')
     console.error(' - s3srcbucket: s3 source bucket where tables are backed up')
     console.error(' - s3dstbucket: s3 destination bucket where snapshot will be stored')
 }

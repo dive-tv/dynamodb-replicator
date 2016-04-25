@@ -14,7 +14,7 @@ var startTime = Date.now()
 
 function usage() {
     console.error('')
-    console.error('Usage: parallell-snapshot <region> <prefix> <s3dstbucket>')
+    console.error('Usage: parallel-snapshot <region> <prefix> <s3dstbucket>')
     console.error(' - region: the dynamodb region with source tables')
     console.error(' - prefix: prefix of tables that should be backed up')
     console.error(' - s3dstbucket: s3 bucket into which the tables should be backed up to')
@@ -66,32 +66,32 @@ var launchBackup = (tableList) => {
             
             var cpus = os.cpus()
             async.forEachOf(cpus, (cpu, procNr, done) => {
-                    let procTables = []
-                    for (let i in tableList)
-                        if (i % cpus.length === procNr)
-                            procTables.push(tableList[i])
-                    
-                    let fileName = `/tmp/pb${procNr.toString()}`
-                    let fileStream = fs.createWriteStream(fileName, {'flags': 'w'})
-                    procTables.map(t => fileStream.write(`${t.name},${t.rps}\n`))
-                    fileStream.end()
-                    
-                    console.log(`Launching P${procNr} for ${procTables.length} tables from ${fileName}`)
-                    
-                    let proc = spawn('./bin/full-db-backup.js', [region, prefix, s3dst, fileName])
-                    
-                    proc.on('exit', (code, signal) => {
-                        if (code !== null) {
-                            exitCode += code
-                            console.log(`P${procNr} finished with code ${code}`)
-                        }
-                        if (signal !== null) { 
-                            console.log(`P${procNr} killed by signal ${signal}`)
-                        }
-                        done()
-                    })
-                    proc.stdout.on('data', data => console.log(`P${procNr}: ${data}`))
-                    proc.stderr.on('data', data => console.error(`P${procNr} ERR: ${data}`))
+                let procTables = []
+                for (let i in tableList)
+                    if (i % cpus.length === procNr)
+                        procTables.push(tableList[i])
+                
+                let fileName = `/tmp/pb${procNr.toString()}`
+                let fileStream = fs.createWriteStream(fileName, {'flags': 'w'})
+                procTables.map(t => fileStream.write(`${t.name},${t.rps}\n`))
+                fileStream.end()
+                
+                console.log(`Launching P${procNr} for ${procTables.length} tables from ${fileName}`)
+                
+                let proc = spawn('./bin/full-db-backup.js', [region, prefix, s3dst, fileName])
+                
+                proc.on('exit', (code, signal) => {
+                    if (code !== null) {
+                        exitCode += code
+                        console.log(`P${procNr} finished with code ${code}`)
+                    }
+                    if (signal !== null) { 
+                        console.log(`P${procNr} killed by signal ${signal}`)
+                    }
+                    done()
+                })
+                proc.stdout.on('data', data => console.log(`P${procNr}: ${data}`))
+                proc.stderr.on('data', data => console.error(`P${procNr} ERR: ${data}`))
             }, (err) => {
                 if (err) console.error(err)
                 console.log(`All processes finished with code ${exitCode}`)
