@@ -8,6 +8,7 @@ var backfill = require('../s3-backfill')
 var Dyno = require('dyno')
 var queue = require('queue-async')
 var fs = require('fs')
+var https = require('https')
 
 function usage() {
     console.error('')
@@ -60,7 +61,15 @@ if (third) {
 
 var dyno = Dyno({
   region: region,
-  table: 'NO-TABLE'
+  table: 'NO-TABLE',
+  httpOptions:
+  {
+      // https://github.com/aws/aws-sdk-js/issues/862
+      agent: new https.Agent({
+          secureProtocol: "TLSv1_method", 
+          ciphers: "ALL"
+      })
+  }
 })
 
 var queue = queue()
