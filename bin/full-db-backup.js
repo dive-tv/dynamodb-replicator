@@ -59,17 +59,20 @@ if (third) {
         readspersec = parseInt(third)
 }
 
+// https://github.com/aws/aws-sdk-js/issues/862
+var ddbAgent = new https.Agent({
+    rejectUnauthorized: true,
+    keepAlive: true,
+    ciphers: 'ALL',
+    secureProtocol: 'TLSv1_method'
+})
+ 
 var dyno = Dyno({
-  region: region,
-  table: 'NO-TABLE',
-  httpOptions:
-  {
-      // https://github.com/aws/aws-sdk-js/issues/862
-      agent: new https.Agent({
-          secureProtocol: "TLSv1_method", 
-          ciphers: "ALL"
-      })
-  }
+    region: region,
+    table: 'NO-TABLE',
+    httpOptions: {
+        agent: ddbAgent
+    }
 })
 
 var queue = queue()
@@ -84,7 +87,10 @@ var dumpTable = (table, rps) => {
                 bucket: s3url.Bucket,
                 prefix: s3url.Key
             },
-            readspersec: rps
+            readspersec: rps,
+            httpOptions: {
+                agent: ddbAgent
+            }
         }, (err) => {
             if (err)
                 console.error(err)
