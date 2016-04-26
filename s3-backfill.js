@@ -58,14 +58,14 @@ module.exports = function(config, done) {
             callback(null, data);
         };
         
-        var writer = new stream.Writable({ objectMode: true, highWaterMark: 1000 });
+        var writer = new stream.Writable({ objectMode: true, highWaterMark: throttler.readsPerSec });
 
         writer.queue = queue();
         writer.queue.awaitAll(function(err) { if (err) done(err); });
         writer.pending = 0;
 
         writer._write = function(record, enc, callback) {
-            if (writer.pending > 1000)
+            if (writer.pending > throttler.readsPerSec)
                 return setImmediate(writer._write.bind(writer), record, enc, callback);
             
             var key = keys.reduce(function(key, k) {
