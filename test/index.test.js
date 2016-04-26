@@ -13,7 +13,7 @@ var _ = require('underscore');
 var crypto = require('crypto');
 var AWS = require('aws-sdk');
 var s3 = new AWS.S3();
-var queue = require('queue-async');
+var queue = require('d3-queue');
 
 replica.start();
 

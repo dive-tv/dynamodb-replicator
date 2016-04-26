@@ -8,7 +8,7 @@ var s3 = new AWS.S3({
     }
 });
 var stream = require('stream');
-var queue = require('queue-async');
+var queue = require('d3-queue');
 var crypto = require('crypto');
 
 const ONE_SEC = 1000
