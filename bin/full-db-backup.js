@@ -6,7 +6,7 @@ var args = require('minimist')(process.argv.slice(2))
 var s3urls = require('s3urls')
 var backfill = require('../s3-backfill')
 var Dyno = require('dyno')
-var queue = require('d3-queue')
+var queue = require('queue-async')
 var fs = require('fs')
 var https = require('https')
 

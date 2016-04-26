@@ -1,6 +1,6 @@
 var AWS = require('aws-sdk');
 var Dyno = require('dyno');
-var queue = require('d3-queue');
+var queue = require('queue-async');
 var streambot = require('streambot');
 var crypto = require('crypto');
 

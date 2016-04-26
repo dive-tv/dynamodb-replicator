@@ -4,7 +4,7 @@ var exec = require('child_process').exec;
 var path = require('path');
 var crypto = require('crypto');
 var AWS = require('aws-sdk');
-var queue = require('d3-queue');
+var queue = require('queue-async');
 
 var primaryItems = [
     {hash: 'hash1', range: 'range1', other:1},

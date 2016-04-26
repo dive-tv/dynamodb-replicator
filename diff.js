@@ -1,5 +1,5 @@
 var _ = require('underscore');
-var queue = require('d3-queue');
+var queue = require('queue-async');
 var Dyno = require('dyno');
 var stream = require('stream');
 var assert = require('assert');
