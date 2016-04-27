@@ -56,6 +56,15 @@ if (!snapshottag) {
 }
 
 var queue = queue(CONCURRENCY)
+var waitForCompletion = () => 
+    queue.awaitAll((err, data) => { 
+        if (err) {
+            console.error(err)
+            process.exit(1)
+        } else {
+            process.exit(0)
+        }
+    })
 
 var snapshotTable = (table) => {
     
@@ -92,6 +101,7 @@ var listTablesFromFile = (fileName) => {
         if (table.length > 0)
             snapshotTable(table)
     })
+    waitForCompletion()
 }
 
 var s3 = new AWS.S3()
@@ -113,6 +123,8 @@ var listTablesFromS3 = (lastKey) => {
             })
             if (data.IsTruncated) {
                 listTablesFromS3(data.NextMarker)
+            } else {
+                waitForCompletion()
             }
         }
     })
@@ -122,12 +134,3 @@ if (tablesfile)
     listTablesFromFile(tablesfile)
 else
     listTablesFromS3(null)
-
-queue.awaitAll((err, data) => { 
-    if (err) {
-        console.error(err)
-        process.exit(1)
-    } else {
-        process.exit(0)
-    }
-})
