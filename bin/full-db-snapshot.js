@@ -15,7 +15,7 @@ const CONCURRENCY = 1
 
 function usage() {
     console.error('')
-    console.error('Usage: full-db-snapshot <s3srcbucket> <s3dstbucket> [tablefile] [snapshottag]')
+    console.error('Usage: full-db-snapshot <s3srcbucket> <s3dstbucket> [-f tablefile] [-t snapshottag]')
     console.error(' - s3srcbucket: s3 source bucket where tables are backed up')
     console.error(' - s3dstbucket: s3 destination bucket where snapshot will be stored')
     console.error(' - tablefile: optional file path with a list of tables to be processed')
@@ -43,12 +43,16 @@ if (!s3dst) {
 }
 s3dst = s3urls.fromUrl(s3dst)
 
-var tablesfile = args._[2]
+var tablesfile = args.f
+if (tablesfile) tablesfile.trim()
 
-var snapshottag = args._[3]
+var snapshottag = args.t
 if (!snapshottag) {
     snapshottag = dateformat(new Date(), "yyyymmdd")
     console.log(`Using default snapshot tag: ${snapshottag}`)
+} else {
+    snapshottag.trim()
+    console.log(`Using snapshot tag: ${snapshottag}`)
 }
 
 var queue = queue(CONCURRENCY)
