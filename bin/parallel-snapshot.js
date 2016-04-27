@@ -11,16 +11,17 @@ var async = require('async')
 var os = require('os')
 
 const S3_SEP = '/'
-const DDB_REGION = 'eu-west-1'
+const DEFAULT_REGION = 'eu-west-1'
 
 var exitCode = 0
 var startTime = Date.now()
 
 function usage() {
     console.error('')
-    console.error('Usage: parallel-snapshot <s3srcbucket> <s3dstbucket>')
+    console.error('Usage: parallel-snapshot <s3srcbucket> <s3dstbucket> [region]')
     console.error(' - s3srcbucket: s3 source bucket where tables are backed up')
     console.error(' - s3dstbucket: s3 destination bucket where snapshot will be stored')
+    console.error(' - region: optional DynamoDB tables region, to order tables by size')
 }
 
 if (args.help) {
@@ -43,7 +44,13 @@ if (!s3dst) {
     process.exit(1)
 }
 
-var dynamoDB = new AWS.DynamoDB({ region: DDB_REGION })
+var region = args._[2]
+if (!region) {
+    region = DEFAULT_REGION
+    console.log(`Using default region ${region}`)
+}
+
+var dynamoDB = new AWS.DynamoDB({ region: region })
 
 var launchSnapshot = (tableList) => {
     
@@ -74,7 +81,7 @@ var launchSnapshot = (tableList) => {
                     
                     console.log(`Launching P${procNr} for ${procTables.length} tables from ${fileName}`)
                     
-                    let proc = spawn('./bin/full-db-snapshot.js', [s3src, s3dst, fileName])
+                    let proc = spawn('./bin/full-db-snapshot.js', [s3src, s3dst, '-f', fileName])
                     
                     proc.on('exit', (code, signal) => {
                         if (code !== null) {
