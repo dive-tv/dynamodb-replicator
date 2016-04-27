@@ -77,6 +77,12 @@ var dyno = Dyno({
 
 var queue = queue()
 
+var waitForCompletion = () => 
+    queue.awaitAll((err, data) => { 
+        if (err) console.error(err)
+        console.log('Backup finished')
+    })
+
 var dumpTable = (table, rps) => {
     console.log(`Dumping ${table} at ${rps} reads per sec`)
     queue.defer((next) => {
@@ -108,6 +114,7 @@ var listTablesFromFile = (fileName) => {
         if (table.length > 0)
             dumpTable.apply(this, table.split(','))
     })
+    waitForCompletion()
 }
 
 var listTablesFromDB = (prefix, lastEvaluatedTableName) => {
@@ -125,14 +132,10 @@ var listTablesFromDB = (prefix, lastEvaluatedTableName) => {
                     dumpTable(table, readspersec)
             })
             
-            if(data.LastEvaluatedTableName) {
+            if(data.LastEvaluatedTableName)
                 listTablesFromDB(prefix, data.LastEvaluatedTableName)
-            } else {
-                queue.awaitAll((err, data) => { 
-                    if (err) console.error(err)
-                    console.log('Backup finished')
-                })
-            }
+            else
+                waitForCompletion()
         }
     })
 }
