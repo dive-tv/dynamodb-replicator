@@ -41,7 +41,8 @@
     "streambot": "^3.3.0",
     "underscore": "^1.8.2",
     "dateformat": "^1.0.12",
-    "async": "^2.0.0-rc.3"
+    "async": "^2.0.0-rc.3",
+    "JSONStream": "^1.1.1"
   },
   "devDependencies": {
     "dynamodb-test": "^0.2.0",

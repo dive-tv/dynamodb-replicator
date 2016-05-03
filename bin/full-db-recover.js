@@ -15,11 +15,12 @@ const S3_SEP = '/'
 
 function usage() {
     console.error('')
-    console.error('Usage: full-db-recover <s3src> <dstregion> [-p prefix | -f tablesfile]')
+    console.error('Usage: full-db-recover <s3src> <dstregion> [-p prefix | -f tablesfile [-s]]')
     console.error(' - s3src: s3 bucket where the DB backup is stored')
     console.error(' - dstregion: the dynamodb region with destination tables')
     console.error(' - prefix: optional prefix to filter tables loaded from S3')
-    console.error(' - tablesfile: optional file with list of tables and their write limits')
+    console.error(' - tablesfile: optional file with list of tables')
+    console.error('           -s: optional flag, indicates that file tables are loaded from a snapshot')
 }
 
 if (args.help) {
@@ -56,6 +57,8 @@ if (tablesfile && prefix) {
     process.exit(1)
 }
 
+var issnapshot = args.s
+
 // https://github.com/aws/aws-sdk-js/issues/862
 var ddbAgent = new https.Agent({
     rejectUnauthorized: true,
@@ -84,11 +87,16 @@ var waitForCompletion = () => {
     })
 }
 
-var recoverTable = (table) => {
-    table = table.trim()
-    if (table.length > 0) {
-        if (table.endsWith('/'))
-            table = table.slice(0, -1)
+var recoverTable = (prefix) => {
+    prefix = prefix.trim()
+    if (prefix.length > 0) {
+        var table
+        if (prefix.endsWith('/'))
+            table = prefix.slice(0, -1)
+        else
+            table = prefix
+        if (issnapshot)
+            table = table.slice(table.indexOf('/') + 1, table.length)
         console.log(`Recovering ${table}`)
         queue.defer((next) => {
             recover({
@@ -96,8 +104,9 @@ var recoverTable = (table) => {
                 table: table,
                 backup: {
                     bucket: s3src.Bucket,
-                    prefix: table
+                    prefix: prefix
                 },
+                gzipped: issnapshot,
                 httpOptions: {
                     agent: ddbAgent
                 }

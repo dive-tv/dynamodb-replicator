@@ -18,9 +18,10 @@ var startTime = Date.now()
 
 function usage() {
     console.error('')
-    console.error('Usage: parallel-recover <region> <s3srcbucket>')
+    console.error('Usage: parallel-recover <region> <s3srcbucket> [-s snapshotdate]')
     console.error(' - region: dynamodb region where tables will be restored')
     console.error(' - s3srcbucket: s3 source bucket where tables are backed up')
+    console.error(' - snapshotdate: optional snapshot date to recover from, as "yyyymmdd"')
 }
 
 if (args.help) {
@@ -43,9 +44,12 @@ if (!s3src) {
 }
 var s3srcbucket = s3urls.fromUrl(s3src)
 
+var snapshot = args.s
+if (snapshot) snapshot = snapshot.toString().trim() + S3_SEP
+
 var dynamoDB = new AWS.DynamoDB({ region: region })
 
-var launchRecover = (tableList) => {
+var launchRecover = (tableList, snapshot) => {
     
     var cpus = os.cpus()
     var queue = d3.queue(cpus.length)
@@ -62,14 +66,16 @@ var launchRecover = (tableList) => {
         
         console.log(`Launching P${procNr} for ${procTables.length} tables from ${fileName}`)
         
-        let proc = spawn('./bin/full-db-recover.js', [s3src, region, '-f', fileName])
+        var args = [s3src, region, '-f', fileName]
+        if (snapshot) args.push('-s')
+        let proc = spawn('./bin/full-db-recover.js', args)
         
         proc.on('exit', (code, signal) => {
             if (code !== null) {
                 exitCode += code
                 console.log(`P${procNr} finished with code ${code}`)
             }
-            if (signal !== null) { 
+            if (signal !== null) {
                 console.log(`P${procNr} killed by signal ${signal}`)
             }
             done()
@@ -95,18 +101,20 @@ var listTablesFromS3 = (lastKey) => {
         EncodingType: 'url',
         Marker: lastKey,
         MaxKeys: 100,
-        Prefix: ''
+        Prefix: snapshot
     }, (err, data) => {
         if (err) {
             console.log(err, err.stack)
         } else {
-            data.CommonPrefixes.map((prefix) => {
-                tableList.push({ name: prefix.Prefix, weight: 0 })
-            })
+            if (snapshot)
+                data.Contents.map(item => tableList.push({ name: item.Key, weight: 0 }))
+            else
+                data.CommonPrefixes.map(prefix => tableList.push({ name: prefix.Prefix, weight: 0 }))
+            
             if (data.IsTruncated)
                 listTablesFromS3(data.NextMarker)
             else
-                launchRecover(tableList)
+                launchRecover(tableList, snapshot)
         }
     })
 }
