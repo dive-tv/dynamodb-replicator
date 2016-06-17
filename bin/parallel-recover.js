@@ -64,24 +64,26 @@ var launchRecover = (tableList, snapshot) => {
         procTables.map(t => fileStream.write(`${t.name}\n`))
         fileStream.end()
         
-        console.log(`Launching P${procNr} for ${procTables.length} tables from ${fileName}`)
-        
-        var args = [s3src, region, '-f', fileName]
-        if (snapshot) args.push('-s')
-        let proc = spawn('./bin/full-db-recover.js', args)
-        
-        proc.on('exit', (code, signal) => {
-            if (code !== null) {
-                exitCode += code
-                console.log(`P${procNr} finished with code ${code}`)
-            }
-            if (signal !== null) {
-                console.log(`P${procNr} killed by signal ${signal}`)
-            }
-            done()
+        fileStream.on('finish', () => {
+            console.log(`Launching P${procNr} for ${procTables.length} tables from ${fileName}`)
+            
+            var args = [s3src, region, '-f', fileName]
+            if (snapshot) args.push('-s')
+            let proc = spawn('./bin/full-db-recover.js', args)
+            
+            proc.on('exit', (code, signal) => {
+                if (code !== null) {
+                    exitCode += code
+                    console.log(`P${procNr} finished with code ${code}`)
+                }
+                if (signal !== null) {
+                    console.log(`P${procNr} killed by signal ${signal}`)
+                }
+                done()
+            })
+            proc.stdout.on('data', data => console.log(`P${procNr}: ${data}`))
+            proc.stderr.on('data', data => console.error(`P${procNr} ERR: ${data}`))
         })
-        proc.stdout.on('data', data => console.log(`P${procNr}: ${data}`))
-        proc.stderr.on('data', data => console.error(`P${procNr} ERR: ${data}`))
     }, (err) => {
         if (err) console.error(err)
         console.log(`All processes finished with code ${exitCode}`)
